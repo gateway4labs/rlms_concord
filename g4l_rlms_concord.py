@@ -1,20 +1,9 @@
 # -*-*- encoding: utf-8 -*-*-
 
 import sys
-import time
-import re
-import sys
-import urlparse
 import json
+import urllib2
 import datetime
-import uuid
-import hashlib
-import threading
-import Queue
-
-from bs4 import BeautifulSoup
-
-from flask.ext.wtf import TextField, PasswordField, Required, URL, ValidationError
 
 from labmanager.forms import AddForm
 from labmanager.rlms import register, Laboratory, CacheDisabler
@@ -50,6 +39,30 @@ class ConcordFormCreator(BaseFormCreator):
 
 FORM_CREATOR = ConcordFormCreator()
 
+MIN_TIME = datetime.timedelta(hours=24)
+
+def retrieve_labs():
+    KEY = 'get_laboratories'
+    labs = CONCORD.cache.get(KEY, min_time = MIN_TIME)
+    if labs:
+        return labs
+
+    dbg("get_laboratories not in cache")
+    laboratories = []
+    interactive_list = CONCORD.cached_session.get("http://lab.concord.org/interactives.json").json()
+    for interactive in interactive_list.get('interactives', []):
+        if 'path' not in interactive:
+            continue
+
+        name = interactive.get('title', 'no title')
+        link = urllib2.quote(interactive['path'], '')
+        description = interactive.get('subtitle', '')
+        lab = Laboratory(name = name, laboratory_id = link, autoload = True, description = description)
+        laboratories.append(lab)
+
+    CONCORD.cache[KEY] = laboratories
+    return laboratories    
+
 class RLMS(BaseRLMS):
 
     def __init__(self, configuration, *args, **kwargs):
@@ -65,20 +78,31 @@ class RLMS(BaseRLMS):
         return retrieve_labs()
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
+        url = 'http://lab.concord.org/embeddable.html#{0}'.format(urllib2.unquote(laboratory_id))
         response = {
-            'reservation_id' : '',
-            'load_url' : ''
+            'reservation_id' : url,
+            'load_url' : url
         }
         return response
 
 def populate_cache():
-    pass
+    rlms = RLMS("{}")
+    rlms.get_laboratories()
 
 CONCORD = register("Concord", ['1.0'], __name__)
 CONCORD.add_global_periodic_task('Populating cache', populate_cache, hours = 23)
 
 def main():
-    pass
+    rlms = RLMS("{}")
+    t0 = time.time()
+    laboratories = rlms.get_laboratories()
+    tf = time.time()
+    print len(laboratories), (tf - t0), "seconds"
+    for lab in laboratories[:5]:
+        t0 = time.time()
+        print rlms.reserve(lab.laboratory_id, 'tester', 'foo', '', '', '', '', locale = lang)
+        tf = time.time()
+        print tf - t0, "seconds"
 
 if __name__ == '__main__':
     main()

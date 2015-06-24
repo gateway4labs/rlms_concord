@@ -14,7 +14,7 @@ classifiers=[
 ]
 
 cp_license="MIT"
-install_requires=["beautifulsoup4"]
+install_requires=[]
 
 setup(name='g4l_rlms_concord',
       version='0.1',
