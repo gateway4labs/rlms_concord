@@ -49,7 +49,7 @@ def retrieve_labs():
 
     dbg("get_laboratories not in cache")
     laboratories = []
-    interactive_list = CONCORD.cached_session.get("http://lab.concord.org/interactives.json").json()
+    interactive_list = CONCORD.cached_session.timeout_get("http://lab.concord.org/interactives.json").json()
     for interactive in interactive_list.get('interactives', []):
         if 'path' not in interactive:
             continue
