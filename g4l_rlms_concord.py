@@ -63,7 +63,7 @@ class Runner(threading.Thread):
             except Empty:
                 break
 
-            identifier = urllib2.quote(lab['path'])
+            identifier = urllib2.quote(lab['path'], '')
             self.shared_data[identifier] = {
                 'title': lab.get('title', 'no title'),
                 'description': lab.get('subtitle', ''),
@@ -199,6 +199,10 @@ def main():
             print rlms.reserve(lab.laboratory_id, 'tester', 'foo', '', '', '', '', locale = lang)
             tf = time.time()
             print tf - t0, "seconds"
+
+    links = retrieve_all_links()
+    import json
+    open('contents.json', 'w').write(json.dumps(links, indent=4))
 
 if __name__ == '__main__':
     main()
