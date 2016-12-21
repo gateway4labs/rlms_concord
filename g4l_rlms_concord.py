@@ -63,10 +63,11 @@ class Runner(threading.Thread):
             except Empty:
                 break
 
-            identifier = urllib2.quote(lab['path'], '')
+            identifier = lab['path']
             self.shared_data[identifier] = {
                 'title': lab.get('title', 'no title'),
                 'description': lab.get('subtitle', ''),
+                'id': urllib2.quote(lab['path'], ''),
                 'locales': {}
             }
 
@@ -131,7 +132,7 @@ def retrieve_labs():
     links = retrieve_all_links()
     laboratories = []
     for link_id, link_data in links.items():
-        lab = Laboratory(name = link_data['title'], laboratory_id = link_id, autoload = True, description = link_data['description'])
+        lab = Laboratory(name = link_data['title'], laboratory_id = link_data['id'], autoload = True, description = link_data['description'])
         laboratories.append(lab)
         
     CONCORD.cache[KEY] = laboratories
@@ -153,7 +154,6 @@ class RLMS(BaseRLMS):
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
         links = retrieve_all_links()
-        laboratory_id = urllib2.unquote(laboratory_id)
         lab = links.get(laboratory_id)
         if lab is None:
             raise LabNotFoundError("Lab not found: {!r} in {!r}".format(laboratory_id, links.keys()))
