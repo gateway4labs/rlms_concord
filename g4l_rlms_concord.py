@@ -153,6 +153,7 @@ class RLMS(BaseRLMS):
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
         links = retrieve_all_links()
+        laboratory_id = urllib2.unquote(laboratory_id)
         lab = links.get(laboratory_id)
         if lab is None:
             raise LabNotFoundError("Lab not found: {}".format(laboratory_id))
