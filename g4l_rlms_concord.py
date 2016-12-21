@@ -156,7 +156,7 @@ class RLMS(BaseRLMS):
         laboratory_id = urllib2.unquote(laboratory_id)
         lab = links.get(laboratory_id)
         if lab is None:
-            raise LabNotFoundError("Lab not found: {}".format(laboratory_id))
+            raise LabNotFoundError("Lab not found: {!r} in {!r}".format(laboratory_id, links.keys()))
 
         locale = kwargs.get('locale', 'en')
         locale_url = lab['locales'].get(locale)
