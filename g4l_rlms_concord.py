@@ -2,11 +2,17 @@
 
 import sys
 import json
+import time
 import urllib2
 import datetime
+import threading
+
+from Queue import Queue, Empty
+
+import requests
 
 from labmanager.forms import AddForm
-from labmanager.rlms import register, Laboratory, CacheDisabler
+from labmanager.rlms import register, Laboratory, CacheDisabler, LabNotFoundError
 from labmanager.rlms.base import BaseRLMS, BaseFormCreator, Capabilities, Versions
 
 DEBUG = False
@@ -41,6 +47,80 @@ FORM_CREATOR = ConcordFormCreator()
 
 MIN_TIME = datetime.timedelta(hours=24)
 
+class Runner(threading.Thread):
+    def __init__(self, shared_queue, shared_data):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.shared_queue = shared_queue
+        self.shared_data = shared_data
+
+    def run(self):
+        s = requests.Session()
+        
+        while True:
+            try:
+                lab = self.shared_queue.get_nowait()
+            except Empty:
+                break
+
+            identifier = urllib2.quote(lab['path'])
+            self.shared_data[identifier] = {
+                'title': lab.get('title', 'no title'),
+                'description': lab.get('subtitle', ''),
+                'locales': {}
+            }
+
+            r = s.get("http://lab.concord.org/locales/metadata/" + lab['path'])
+            try:
+                r.raise_for_status()
+            except Exception as e:
+                self.shared_data[identifier]['locales']['en'] = lab['path']
+            else:
+                for lang, lang_url in r.json().items():
+                    lang_name = lang.split('-')[0]
+                    lang_url = 'http://lab.concord.org/' + lang_url
+                    self.shared_data[identifier]['locales'][lang_name] = lang_url
+
+THREADS = 10
+
+def retrieve_all_links():
+    KEY = 'get_all_links'
+    links = CONCORD.cache.get(KEY, min_time=MIN_TIME)
+    if links:
+        return links
+
+    shared_queue = Queue()
+    shared_data = {
+    #   quoted_path : {
+    #       'title': title,
+    #       'description': description,
+    #       'locales': {
+    #           language: url
+    #       }
+    #   }
+    }
+
+    contents = requests.get("http://lab.concord.org/interactives.json").json()
+    for lab in contents['interactives']:
+        shared_queue.put(lab)
+
+    _threads = []
+    for t in range(THREADS):
+        r = Runner(shared_queue, shared_data)
+        r.start()
+        _threads.append(r)
+    
+    any_alive = True
+    while any_alive:
+        any_alive = False
+        for t in _threads:
+            if t.isAlive():
+                any_alive = True
+        time.sleep(0.05)
+    
+    CONCORD.cache[KEY] = shared_data
+    return shared_data
+
 def retrieve_labs():
     KEY = 'get_laboratories'
     labs = CONCORD.cache.get(KEY, min_time = MIN_TIME)
@@ -48,18 +128,12 @@ def retrieve_labs():
         return labs
 
     dbg("get_laboratories not in cache")
+    links = retrieve_all_links()
     laboratories = []
-    interactive_list = CONCORD.cached_session.timeout_get("http://lab.concord.org/interactives.json").json()
-    for interactive in interactive_list.get('interactives', []):
-        if 'path' not in interactive:
-            continue
-
-        name = interactive.get('title', 'no title')
-        link = urllib2.quote(interactive['path'], '')
-        description = interactive.get('subtitle', '')
-        lab = Laboratory(name = name, laboratory_id = link, autoload = True, description = description)
+    for link_id, link_data in links.items():
+        lab = Laboratory(name = link_data['title'], laboratory_id = link_id, autoload = True, description = link_data['description'])
         laboratories.append(lab)
-
+        
     CONCORD.cache[KEY] = laboratories
     return laboratories    
 
@@ -78,7 +152,19 @@ class RLMS(BaseRLMS):
         return retrieve_labs()
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
-        url = 'http://lab.concord.org/embeddable.html#{0}'.format(urllib2.unquote(laboratory_id))
+        links = retrieve_all_links()
+        lab = links.get(laboratory_id)
+        if lab is None:
+            raise LabNotFoundError("Lab not found: {}".format(laboratory_id))
+
+        locale = kwargs.get('locale', 'en')
+        locale_url = lab['locales'].get(locale)
+        if locale_url is None:
+            locale_url = lab['locales'].get('en')
+            if locale_url is None:
+                raise LabNotFoundError("Lab not found in English: {}".format(laboratory_id))
+        
+        url = 'http://lab.concord.org/embeddable.html#{0}'.format(locale_url)
         response = {
             'reservation_id' : url,
             'load_url' : url
@@ -99,10 +185,20 @@ def main():
     tf = time.time()
     print len(laboratories), (tf - t0), "seconds"
     for lab in laboratories[:5]:
-        t0 = time.time()
-        print rlms.reserve(lab.laboratory_id, 'tester', 'foo', '', '', '', '', locale = lang)
-        tf = time.time()
-        print tf - t0, "seconds"
+        for lang in ('es', 'en'):
+            t0 = time.time()
+            print rlms.reserve(lab.laboratory_id, 'tester', 'foo', '', '', '', '', locale = lang)
+            tf = time.time()
+            print tf - t0, "seconds"
+
+    for lab in laboratories:
+        if 'pollution' not in lab.laboratory_id:
+            continue
+        for lang in ('es', 'en'):
+            t0 = time.time()
+            print rlms.reserve(lab.laboratory_id, 'tester', 'foo', '', '', '', '', locale = lang)
+            tf = time.time()
+            print tf - t0, "seconds"
 
 if __name__ == '__main__':
     main()
