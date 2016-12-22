@@ -147,10 +147,20 @@ class RLMS(BaseRLMS):
         return Versions.VERSION_1
 
     def get_capabilities(self):
-        return []
+        return [Capabilities.TRANSLATION_LIST]
 
     def get_laboratories(self, **kwargs):
         return retrieve_labs()
+
+    def get_translation_list(self, laboratory_id):
+        links = retrieve_all_links()
+        for link, link_data in links.items():
+            if link == laboratory_id:
+                return dict(supported_languages=link_data['locales'].keys())
+
+        return {
+            'supported_languages' : ['en']
+        }
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
         links = retrieve_all_links()
