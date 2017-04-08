@@ -147,7 +147,16 @@ class RLMS(BaseRLMS):
         return Versions.VERSION_1
 
     def get_capabilities(self):
-        return [Capabilities.TRANSLATION_LIST]
+        return [Capabilities.TRANSLATION_LIST, Capabilities.URL_FINDER]
+
+    def get_base_urls(self):
+        return [ 'http://lab.concord.org/', 'https://lab.concord.org/' ]
+
+    def get_lab_by_url(self, url):
+        for lab in retrieve_labs():
+            if urllib2.unquote(lab.laboratory_id) in url:
+                return lab
+        return None
 
     def get_laboratories(self, **kwargs):
         return retrieve_labs()
