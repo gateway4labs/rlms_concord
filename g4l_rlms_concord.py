@@ -164,7 +164,7 @@ class RLMS(BaseRLMS):
     def get_translation_list(self, laboratory_id):
         links = retrieve_all_links()
         for link, link_data in links.items():
-            if link == laboratory_id:
+            if link == laboratory_id or link == requests.utils.unquote(laboratory_id):
                 return dict(supported_languages=link_data['locales'].keys())
 
         return {
