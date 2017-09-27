@@ -74,10 +74,11 @@ class Runner(threading.Thread):
             r = s.get("http://lab.concord.org/locales/metadata/" + lab['path'])
             try:
                 r.raise_for_status()
+                json_contents = r.json()
             except Exception as e:
                 self.shared_data[identifier]['locales']['en'] = lab['path']
             else:
-                for lang, lang_url in r.json().items():
+                for lang, lang_url in json_contents.items():
                     lang_name = lang.split('-')[0]
                     lang_url = 'http://lab.concord.org/' + lang_url
                     self.shared_data[identifier]['locales'][lang_name] = lang_url
