@@ -148,7 +148,7 @@ class RLMS(BaseRLMS):
         return Versions.VERSION_1
 
     def get_capabilities(self):
-        return [Capabilities.TRANSLATION_LIST, Capabilities.URL_FINDER]
+        return [Capabilities.TRANSLATION_LIST, Capabilities.URL_FINDER, Capabilities.CHECK_URLS ]
 
     def get_base_urls(self):
         return [ 'http://lab.concord.org/', 'https://lab.concord.org/' ]
@@ -171,6 +171,16 @@ class RLMS(BaseRLMS):
         return {
             'supported_languages' : ['en']
         }
+
+    def get_check_urls(self, laboratory_id):
+        links = retrieve_all_links()
+        lab = links.get(laboratory_id)
+
+        check_urls = []
+        for locale_url in lab['locales'].values():
+            check_urls.append('http://lab.concord.org/embeddable.html#{0}'.format(locale_url))
+
+        return check_urls
 
     def reserve(self, laboratory_id, username, institution, general_configuration_str, particular_configurations, request_payload, user_properties, *args, **kwargs):
         links = retrieve_all_links()
