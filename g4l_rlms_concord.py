@@ -24,7 +24,7 @@ def dbg(msg):
 
 class ConcordAddForm(AddForm):
 
-    DEFAULT_URL = 'http://lab.concord.org/'
+    DEFAULT_URL = 'https://lab.concord.org/'
     DEFAULT_LOCATION = 'Concord, MA, USA'
     DEFAULT_PUBLICLY_AVAILABLE = True
     DEFAULT_PUBLIC_IDENTIFIER = 'concord'
@@ -71,7 +71,7 @@ class Runner(threading.Thread):
                 'locales': {}
             }
 
-            r = s.get("http://lab.concord.org/locales/metadata/" + lab['path'])
+            r = s.get("https://lab.concord.org/locales/metadata/" + lab['path'])
             try:
                 r.raise_for_status()
                 json_contents = r.json()
@@ -80,7 +80,7 @@ class Runner(threading.Thread):
             else:
                 for lang, lang_url in json_contents.items():
                     lang_name = lang.split('-')[0]
-                    lang_url = 'http://lab.concord.org/' + lang_url
+                    lang_url = 'https://lab.concord.org/' + lang_url
                     self.shared_data[identifier]['locales'][lang_name] = lang_url
 
 THREADS = 10
@@ -102,7 +102,7 @@ def retrieve_all_links():
     #   }
     }
 
-    contents = requests.get("http://lab.concord.org/interactives.json").json()
+    contents = requests.get("https://lab.concord.org/interactives.json").json()
     for lab in contents['interactives']:
         shared_queue.put(lab)
 
@@ -178,7 +178,7 @@ class RLMS(BaseRLMS):
 
         check_urls = []
         for locale_url in lab['locales'].values():
-            check_urls.append('http://lab.concord.org/embeddable.html#{0}'.format(locale_url))
+            check_urls.append('https://lab.concord.org/embeddable.html#{0}'.format(locale_url))
 
         return check_urls
 
@@ -197,7 +197,7 @@ class RLMS(BaseRLMS):
             if locale_url is None:
                 raise LabNotFoundError("Lab not found in English: {}".format(laboratory_id))
         
-        url = 'http://lab.concord.org/embeddable.html#{0}'.format(locale_url)
+        url = 'https://lab.concord.org/embeddable.html#{0}'.format(locale_url)
         response = {
             'reservation_id' : url,
             'load_url' : url
